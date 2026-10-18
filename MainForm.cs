@@ -35,21 +35,36 @@ namespace DesligarTimer
         private Acao acao;
         private NotifyIcon bandeja;
         private bool saindo;
+        private readonly bool iniciarNaBandeja;
+        private int duracaoHoras;
+        private int duracaoMinutos;
+        private int duracaoSegundos;
+        private int horaExataHoras;
+        private int horaExataMinutos;
+        private int horaExataSegundos;
 
         public MainForm(bool iniciarNaBandeja)
         {
+            this.iniciarNaBandeja = iniciarNaBandeja;
             alvo = null;
             modo = Modo.Temporizador;
             acao = Acao.Desligar;
             saindo = false;
+            duracaoHoras = 0;
+            duracaoMinutos = 30;
+            duracaoSegundos = 0;
+            DateTime proximoHorario = DateTime.Now.AddHours(1);
+            horaExataHoras = proximoHorario.Hour;
+            horaExataMinutos = proximoHorario.Minute;
+            horaExataSegundos = 0;
 
             Text = "Desligar Timer";
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             MinimizeBox = true;
             ShowInTaskbar = true;
-            StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(430, 600);
+            StartPosition = FormStartPosition.Manual;
+            ClientSize = new Size(340, 445);
             BackColor = Page;
             Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
             DoubleBuffered = true;
@@ -58,6 +73,7 @@ namespace DesligarTimer
 
             ConstruirInterface();
             ConstruirBandeja();
+            PosicionarPertoDoRelogio();
 
             relogio = new Timer();
             relogio.Interval = 500;
@@ -71,7 +87,21 @@ namespace DesligarTimer
                 if (!saindo)
                 {
                     e.Cancel = true;
+                    ShowInTaskbar = false;
                     Hide();
+                    if (bandeja != null)
+                        bandeja.ShowBalloonTip(2500, "Desligar Timer", "A janela foi fechada e o programa continua na área de notificação.", ToolTipIcon.Info);
+                }
+            };
+
+            Resize += delegate
+            {
+                if (WindowState == FormWindowState.Minimized && !this.iniciarNaBandeja && bandeja != null)
+                {
+                    ShowInTaskbar = false;
+                    WindowState = FormWindowState.Normal;
+                    Hide();
+                    bandeja.ShowBalloonTip(2500, "Desligar Timer", "O programa foi minimizado para a área de notificação.", ToolTipIcon.Info);
                 }
             };
 
@@ -88,64 +118,64 @@ namespace DesligarTimer
         private void ConstruirInterface()
         {
             Panel topo = new Panel();
-            topo.Bounds = new Rectangle(0, 0, 430, 82);
+            topo.Bounds = new Rectangle(0, 0, 340, 61);
             topo.BackColor = Navy;
             Controls.Add(topo);
 
             Panel faixa = new Panel();
-            faixa.Bounds = new Rectangle(0, 0, 5, 82);
+            faixa.Bounds = new Rectangle(0, 0, 4, 61);
             faixa.BackColor = Accent;
             topo.Controls.Add(faixa);
 
-            Label titulo = CriarLabel("Desligar Timer", new Rectangle(24, 8, 380, 39), 17F, White, FontStyle.Bold, ContentAlignment.MiddleLeft);
+            Label titulo = CriarLabel("Desligar Timer", new Rectangle(18, 5, 300, 29), 15F, White, FontStyle.Bold, ContentAlignment.MiddleLeft);
             topo.Controls.Add(titulo);
-            Label subtitulo = CriarLabel("Agende o desligamento, a suspensão ou a hibernação.", new Rectangle(26, 46, 380, 20), 9F, Color.FromArgb(198, 211, 225), FontStyle.Regular, ContentAlignment.MiddleLeft);
+            Label subtitulo = CriarLabel("Temporizador do Windows", new Rectangle(20, 34, 300, 17), 8.5F, Color.FromArgb(198, 211, 225), FontStyle.Regular, ContentAlignment.MiddleLeft);
             topo.Controls.Add(subtitulo);
 
-            Panel painelRelogio = CriarCartao(new Rectangle(20, 98, 390, 102));
+            Panel painelRelogio = CriarCartao(new Rectangle(16, 73, 308, 62));
             Controls.Add(painelRelogio);
-            Label legendaHora = CriarLabel("HORA ATUAL", new Rectangle(16, 6, 350, 22), 8.5F, Muted, FontStyle.Bold, ContentAlignment.MiddleLeft);
+            Label legendaHora = CriarLabel("HORA ATUAL", new Rectangle(13, 5, 282, 17), 8F, Muted, FontStyle.Bold, ContentAlignment.MiddleLeft);
             painelRelogio.Controls.Add(legendaHora);
-            lblHora = CriarLabel("00:00:00", new Rectangle(15, 27, 355, 42), 19F, Navy, FontStyle.Bold, ContentAlignment.MiddleLeft);
+            lblHora = CriarLabel("00:00:00", new Rectangle(12, 20, 130, 30), 15F, Navy, FontStyle.Bold, ContentAlignment.MiddleLeft);
             painelRelogio.Controls.Add(lblHora);
-            lblRestante = CriarLabel("Nenhum temporizador agendado.", new Rectangle(16, 73, 355, 22), 9F, Muted, FontStyle.Regular, ContentAlignment.MiddleLeft);
+            lblRestante = CriarLabel("PRONTO", new Rectangle(146, 19, 148, 25), 7.5F, Muted, FontStyle.Bold, ContentAlignment.MiddleRight);
             painelRelogio.Controls.Add(lblRestante);
 
-            Label tituloConfig = CriarLabel("Configurar temporizador", new Rectangle(23, 211, 382, 31), 13F, Navy, FontStyle.Bold, ContentAlignment.MiddleLeft);
+            Label tituloConfig = CriarLabel("Configurar temporizador", new Rectangle(18, 148, 304, 24), 12F, Navy, FontStyle.Bold, ContentAlignment.MiddleLeft);
             Controls.Add(tituloConfig);
-            Label ajudaConfig = CriarLabel("Escolha uma duração ou um horário de término.", new Rectangle(24, 241, 382, 19), 9F, Muted, FontStyle.Regular, ContentAlignment.MiddleLeft);
+            Label ajudaConfig = CriarLabel("Role os números ou clique para editar.", new Rectangle(19, 171, 302, 17), 8.5F, Muted, FontStyle.Regular, ContentAlignment.MiddleLeft);
             Controls.Add(ajudaConfig);
 
-            rbDuracao = CriarOpcao("Duração", new Rectangle(21, 272, 190, 34));
-            rbExata = CriarOpcao("Hora exata", new Rectangle(219, 272, 190, 34));
+            rbDuracao = CriarOpcao("Duração", new Rectangle(16, 195, 150, 30));
+            rbExata = CriarOpcao("Hora exata", new Rectangle(174, 195, 150, 30));
             rbDuracao.Checked = true;
             rbDuracao.CheckedChanged += delegate { AtualizarModo(); };
             rbExata.CheckedChanged += delegate { AtualizarModo(); };
             Controls.Add(rbDuracao);
             Controls.Add(rbExata);
 
-            Panel painelEntrada = CriarCartao(new Rectangle(20, 315, 390, 95));
+            Panel painelEntrada = CriarCartao(new Rectangle(16, 234, 308, 86));
             Controls.Add(painelEntrada);
 
-            lblHoras = CriarLabel("HORAS", new Rectangle(20, 9, 95, 16), 8F, Muted, FontStyle.Bold, ContentAlignment.MiddleCenter);
-            lblMinutos = CriarLabel("MINUTOS", new Rectangle(147, 9, 95, 16), 8F, Muted, FontStyle.Bold, ContentAlignment.MiddleCenter);
-            lblSegundos = CriarLabel("SEGUNDOS", new Rectangle(274, 9, 95, 16), 8F, Muted, FontStyle.Bold, ContentAlignment.MiddleCenter);
+            lblHoras = CriarLabel("HORAS", new Rectangle(15, 7, 76, 15), 7.5F, Muted, FontStyle.Bold, ContentAlignment.MiddleCenter);
+            lblMinutos = CriarLabel("MINUTOS", new Rectangle(116, 7, 76, 15), 7.5F, Muted, FontStyle.Bold, ContentAlignment.MiddleCenter);
+            lblSegundos = CriarLabel("SEGUNDOS", new Rectangle(217, 7, 76, 15), 7.5F, Muted, FontStyle.Bold, ContentAlignment.MiddleCenter);
             painelEntrada.Controls.Add(lblHoras);
             painelEntrada.Controls.Add(lblMinutos);
             painelEntrada.Controls.Add(lblSegundos);
 
-            nudH = CriarNumero(new Rectangle(23, 27, 98, 58), 23, 0, "HORAS");
-            nudM = CriarNumero(new Rectangle(146, 27, 98, 58), 59, 30, "MIN");
-            nudS = CriarNumero(new Rectangle(269, 27, 98, 58), 59, 0, "SEG");
+            nudH = CriarNumero(new Rectangle(18, 25, 76, 53), 23, 0, "HORAS");
+            nudM = CriarNumero(new Rectangle(116, 25, 76, 53), 59, 30, "MIN");
+            nudS = CriarNumero(new Rectangle(214, 25, 76, 53), 59, 0, "SEG");
             painelEntrada.Controls.Add(nudH);
             painelEntrada.Controls.Add(nudM);
             painelEntrada.Controls.Add(nudS);
-            Label separador1 = CriarLabel(":", new Rectangle(122, 30, 22, 52), 25F, Color.FromArgb(104, 119, 132), FontStyle.Regular, ContentAlignment.MiddleCenter);
-            Label separador2 = CriarLabel(":", new Rectangle(245, 30, 22, 52), 25F, Color.FromArgb(104, 119, 132), FontStyle.Regular, ContentAlignment.MiddleCenter);
+            Label separador1 = CriarLabel(":", new Rectangle(94, 27, 22, 48), 22F, Color.FromArgb(104, 119, 132), FontStyle.Regular, ContentAlignment.MiddleCenter);
+            Label separador2 = CriarLabel(":", new Rectangle(192, 27, 22, 48), 22F, Color.FromArgb(104, 119, 132), FontStyle.Regular, ContentAlignment.MiddleCenter);
             painelEntrada.Controls.Add(separador1);
             painelEntrada.Controls.Add(separador2);
 
-            lblHoraExata = CriarLabel("HORÁRIO (24H)", new Rectangle(20, 9, 350, 16), 8F, Muted, FontStyle.Bold, ContentAlignment.MiddleCenter);
+            lblHoraExata = CriarLabel("HORÁRIO (24H)", new Rectangle(20, 7, 268, 15), 8F, Muted, FontStyle.Bold, ContentAlignment.MiddleCenter);
             lblHoraExata.Visible = false;
             painelEntrada.Controls.Add(lblHoraExata);
             mskHora = new MaskedTextBox();
@@ -162,10 +192,10 @@ namespace DesligarTimer
             mskHora.Visible = false;
             painelEntrada.Controls.Add(mskHora);
 
-            Label legendaAcao = CriarLabel("AO FINALIZAR", new Rectangle(23, 421, 380, 18), 8.5F, Muted, FontStyle.Bold, ContentAlignment.MiddleLeft);
+            Label legendaAcao = CriarLabel("AO FINALIZAR", new Rectangle(18, 329, 304, 16), 8F, Muted, FontStyle.Bold, ContentAlignment.MiddleLeft);
             Controls.Add(legendaAcao);
             cboAcao = new ComboBox();
-            cboAcao.Bounds = new Rectangle(20, 443, 390, 34);
+            cboAcao.Bounds = new Rectangle(16, 347, 308, 30);
             cboAcao.DropDownStyle = ComboBoxStyle.DropDownList;
             cboAcao.FlatStyle = FlatStyle.Flat;
             cboAcao.Font = new Font("Segoe UI", 10F, FontStyle.Regular, GraphicsUnit.Point);
@@ -176,15 +206,15 @@ namespace DesligarTimer
             cboAcao.SelectedIndexChanged += delegate { acao = (Acao)cboAcao.SelectedIndex; };
             Controls.Add(cboAcao);
 
-            btnAgendar = CriarBotao("INICIAR TEMPORIZADOR", new Rectangle(20, 495, 250, 44), Accent, White, true);
-            btnCancelar = CriarBotao("CANCELAR", new Rectangle(278, 495, 132, 44), White, Navy, false);
+            btnAgendar = CriarBotao("INICIAR TEMPORIZADOR", new Rectangle(16, 388, 198, 36), Accent, White, true);
+            btnCancelar = CriarBotao("CANCELAR", new Rectangle(220, 388, 104, 36), White, Navy, false);
             btnCancelar.Enabled = false;
             btnAgendar.Click += delegate { Agendar(); };
             btnCancelar.Click += delegate { Cancelar("Temporizador cancelado."); };
             Controls.Add(btnAgendar);
             Controls.Add(btnCancelar);
 
-            Label rodape = CriarLabel("O aplicativo permanece disponível na área de notificação.", new Rectangle(23, 558, 385, 20), 8.5F, Muted, FontStyle.Regular, ContentAlignment.MiddleCenter);
+            Label rodape = CriarLabel("O aplicativo fica disponível na área de notificação.", new Rectangle(18, 428, 304, 15), 7.5F, Muted, FontStyle.Regular, ContentAlignment.MiddleCenter);
             Controls.Add(rodape);
         }
 
@@ -270,16 +300,46 @@ namespace DesligarTimer
 
         private void AtualizarModo()
         {
-            modo = rbExata.Checked ? Modo.HoraExata : Modo.Temporizador;
+            Modo novoModo = rbExata.Checked ? Modo.HoraExata : Modo.Temporizador;
+            if (novoModo != modo)
+            {
+                if (modo == Modo.Temporizador)
+                {
+                    duracaoHoras = (int)nudH.Value;
+                    duracaoMinutos = (int)nudM.Value;
+                    duracaoSegundos = (int)nudS.Value;
+                }
+                else
+                {
+                    horaExataHoras = (int)nudH.Value;
+                    horaExataMinutos = (int)nudM.Value;
+                    horaExataSegundos = (int)nudS.Value;
+                }
+
+                modo = novoModo;
+                if (modo == Modo.Temporizador)
+                {
+                    nudH.Value = duracaoHoras;
+                    nudM.Value = duracaoMinutos;
+                    nudS.Value = duracaoSegundos;
+                }
+                else
+                {
+                    nudH.Value = horaExataHoras;
+                    nudM.Value = horaExataMinutos;
+                    nudS.Value = horaExataSegundos;
+                }
+            }
+
             bool porDuracao = modo == Modo.Temporizador;
-            nudH.Visible = porDuracao;
-            nudM.Visible = porDuracao;
-            nudS.Visible = porDuracao;
-            lblHoras.Visible = porDuracao;
-            lblMinutos.Visible = porDuracao;
-            lblSegundos.Visible = porDuracao;
-            mskHora.Visible = !porDuracao;
-            lblHoraExata.Visible = !porDuracao;
+            nudH.Visible = true;
+            nudM.Visible = true;
+            nudS.Visible = true;
+            lblHoras.Visible = true;
+            lblMinutos.Visible = true;
+            lblSegundos.Visible = true;
+            mskHora.Visible = false;
+            lblHoraExata.Visible = false;
 
             rbDuracao.BackColor = porDuracao ? Accent : Color.FromArgb(229, 234, 240);
             rbDuracao.ForeColor = porDuracao ? White : Muted;
@@ -302,15 +362,10 @@ namespace DesligarTimer
             }
             else
             {
-                string[] partes = mskHora.Text.Split(':');
-                int horas;
-                int minutos;
-                if (partes.Length != 2 || !int.TryParse(partes[0], out horas) || !int.TryParse(partes[1], out minutos) || horas > 23 || minutos > 59)
-                {
-                    MessageBox.Show("Informe um horário válido no formato HH:MM.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-                horario = DateTime.Today.AddHours(horas).AddMinutes(minutos);
+                int horas = (int)nudH.Value;
+                int minutos = (int)nudM.Value;
+                int segundos = (int)nudS.Value;
+                horario = DateTime.Today.AddHours(horas).AddMinutes(minutos).AddSeconds(segundos);
                 if (horario <= DateTime.Now)
                 {
                     MessageBox.Show("Esse horário já passou hoje.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -335,7 +390,6 @@ namespace DesligarTimer
             nudH.Enabled = ativos;
             nudM.Enabled = ativos;
             nudS.Enabled = ativos;
-            mskHora.Enabled = ativos;
             cboAcao.Enabled = ativos;
             btnAgendar.Enabled = ativos;
             btnCancelar.Enabled = !ativos;
@@ -348,7 +402,7 @@ namespace DesligarTimer
 
             alvo = null;
             DefinirControlesAtivos(true);
-            lblRestante.Text = "Nenhum temporizador agendado.";
+            lblRestante.Text = "PRONTO";
             AtualizarTooltip();
             bandeja.ShowBalloonTip(2500, "Desligar Timer", mensagem, ToolTipIcon.Info);
         }
@@ -364,7 +418,10 @@ namespace DesligarTimer
                     Executar();
                     return;
                 }
-                lblRestante.Text = "Faltam " + Formatar(restante) + " para " + NomeAcao().ToLowerInvariant() + ".";
+                lblRestante.Text = "ATIVO";
+                nudH.Value = (int)restante.TotalHours;
+                nudM.Value = restante.Minutes;
+                nudS.Value = restante.Seconds;
             }
             AtualizarTooltip();
         }
@@ -398,6 +455,7 @@ namespace DesligarTimer
             DateTime horario = alvo.Value;
             alvo = null;
             DefinirControlesAtivos(true);
+            lblRestante.Text = "PRONTO";
 
             try
             {
@@ -424,12 +482,17 @@ namespace DesligarTimer
 
         private void MostrarJanela()
         {
-            Rectangle area = Screen.FromPoint(Cursor.Position).WorkingArea;
-            Location = new Point(area.Right - Width - 18, area.Bottom - Height - 18);
+            PosicionarPertoDoRelogio();
             ShowInTaskbar = true;
             Show();
             WindowState = FormWindowState.Normal;
             Activate();
+        }
+
+        private void PosicionarPertoDoRelogio()
+        {
+            Rectangle area = Screen.FromPoint(Cursor.Position).WorkingArea;
+            Location = new Point(area.Right - Width - 18, area.Bottom - Height - 18);
         }
 
         private void Sair()
